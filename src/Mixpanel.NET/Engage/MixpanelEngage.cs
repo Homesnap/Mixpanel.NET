@@ -36,8 +36,8 @@ namespace Mixpanel.NET.Engage
 
 			var values = "data=" + new JavaScriptSerializer().Serialize(dictionary).Base64Encode();
 			var contents = _options.UseGet
-			  ? http.Get(Resources.Engage(_options.ProxyUrl), values)
-			  : http.Post(Resources.Engage(_options.ProxyUrl), values);
+			  ? http.Get(Resources.MixpanelEngageUrl, values)
+			  : http.Post(Resources.MixpanelEngageUrl, values);
 
 			return contents == "1";
 		}
