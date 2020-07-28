@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Web.Script.Serialization;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Mixpanel.NET.Events
 {
@@ -45,8 +46,34 @@ namespace Mixpanel.NET.Events
             if (_options.Test) values += "&test=1";
 
             var contents = _options.UseGet
-              ? http.Get(Resources.Track(_options.ProxyUrl), values)
-              : http.Post(Resources.Track(_options.ProxyUrl), values);
+              ? http.Get(Resources.MixpanelTrackUrl, values)
+              : http.Post(Resources.MixpanelTrackUrl, values);
+
+            return contents == "1";
+        }
+
+        public async Task<bool> TrackAsync(string @event, IDictionary<string, object> properties)
+        {
+            var propertyBag = properties.FormatProperties();
+            // Standardize token and time values for Mixpanel
+            propertyBag["token"] = token;
+
+            if (_options.SetEventTime && !properties.Keys.Any(x => x.ToLower() == "time"))
+                propertyBag["time"] = DateTime.UtcNow.FormatDate();
+
+            var data = new JavaScriptSerializer().Serialize(new Dictionary<string, object>
+            {
+                { "event", @event },
+                { "properties", propertyBag }
+            });
+
+            var values = "data=" + data.Base64Encode();
+
+            if (_options.Test) values += "&test=1";
+
+            var contents = _options.UseGet
+                ? await http.GetAsync(Resources.MixpanelTrackUrl, values).ConfigureAwait(false)
+                : await http.PostAsync(Resources.MixpanelTrackUrl, values).ConfigureAwait(false);
 
             return contents == "1";
         }
@@ -56,9 +83,20 @@ namespace Mixpanel.NET.Events
             return Track(@event.Event, @event.Properties);
         }
 
+        public async Task<bool> TrackAsync(MixpanelEvent @event)
+        {
+            return await TrackAsync(@event.Event, @event.Properties).ConfigureAwait(false);
+        }
+
         public bool Track<T>(T @event)
         {
             return Track(@event.ToMixpanelEvent(_options.LiteralSerialization));
         }
+        
+        public async Task<bool> TrackAsync<T>(T @event)
+        {
+            return await TrackAsync(@event.ToMixpanelEvent(_options.LiteralSerialization)).ConfigureAwait(false);
+        }
+
     }
 }
